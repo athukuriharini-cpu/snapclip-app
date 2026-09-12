@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnapClip — Smart Snippet & Clipboard Vault</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f4f4ff',
+              100: '#ebe9fe',
+              500: '#6C63FF',
+              600: '#574edf',
+              700: '#4A44CC',
+            },
+            accent: '#FF6584',
+            gold: '#FFB800',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars & Utilities */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(108, 99, 255, 0.25); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(108, 99, 255, 0.45); }
+    .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); }
+    .dark .glass { background: rgba(26, 26, 46, 0.85); backdrop-filter: blur(12px); }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+  </style>
+</head>
+
+<body class="bg-[#F8F9FE] dark:bg-[#0F0F1A] text-[#1A1A2E] dark:text-[#E8E8FF] font-sans antialiased min-h-screen transition-colors duration-200">
+  
+  <div id="app" class="flex flex-col min-h-screen">
+    <!-- Top Header -->
+    <header class="sticky top-0 z-40 border-b border-[#E8E8F5] dark:border-[#252540] glass">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <!-- Logo -->
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="navigate('home')">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-accent flex items-center justify-center text-white text-xl shadow-lg shadow-brand-500/25">
+            📋
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-xl tracking-tight text-[#1A1A2E] dark:text-white">SnapClip</span>
+              <span id="proBadge" class="hidden px-2 py-0.5 text-[10px] font-extrabold tracking-wider bg-gradient-to-r from-amber-400 to-amber-600 text-white rounded-full shadow-sm">PRO</span>
+            </div>
+            <p class="text-[11px] text-gray-500 dark:text-gray-400 -mt-0.5">RevenueCat Shipaton Edition</p>
+          </div>
+        </div>
+
+        <!-- Search Bar (Desktop) -->
+        <div class="hidden md:flex flex-1 max-w-md mx-8 relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3 text-gray-400"></i>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Search snippets, content, #tags..." 
+            oninput="handleSearch(this.value)"
+            class="w-full pl-10 pr-4 py-2 text-sm rounded-xl bg-[#F0F0FF] dark:bg-[#1A1A2E] border-none focus:ring-2 focus:ring-brand-500 focus:outline-none dark:text-white placeholder-gray-400"
+          >
+        </div>
+
+        <!-- Right Action Controls -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <!-- Live Preview Device Toggle -->
+          <button 
+            onclick="toggleDeviceFrame()" 
+            id="deviceFrameBtn"
+            class="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 dark:bg-[#252540] hover:bg-gray-200 dark:hover:bg-[#2d2d4e] transition-colors"
+            title="Toggle Mobile Simulator Frame"
+          >
+            <i data-lucide="smartphone" class="w-4 h-4 text-brand-500"></i>
+            <span id="deviceFrameLabel">Mobile View</span>
+          </button>
+
+          <!-- Pro Upgrade Button -->
+          <button 
+            id="headerUpgradeBtn"
+            onclick="openPaywall('Unlock Unlimited Snippets & Cloud Backup')"
+            class="flex items-center space-x-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition-all transform active:scale-95"
+          >
+            <i data-lucide="crown" class="w-3.5 h-3.5"></i>
+            <span>Upgrade to Pro</span>
+          </button>
+
+          <!-- Dark Mode Toggle -->
+          <button 
+            onclick="toggleDarkMode()" 
+            class="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252540] transition-colors"
+          >
+            <i id="themeIcon" data-lucide="moon" class="w-5 h-5"></i>
+          </button>
+
+          <!-- Auth / User Button -->
+          <div id="authContainer">
+            <button 
+              id="loginBtn"
+              onclick="openAuthModal()"
+              class="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-sm transition-all"
+            >
+              <i data-lucide="user" class="w-3.5 h-3.5"></i>
+              <span>Sign In</span>
+            </button>
+            <div id="userProfile" class="hidden flex items-center space-x-2">
+              <div id="userAvatar" class="w-8 h-8 rounded-full bg-brand-500/20 text-brand-500 font-bold flex items-center justify-center text-xs border border-brand-500/30"></div>
+              <button onclick="signOutUser()" class="text-xs text-gray-400 hover:text-red-500 p-1">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Container with Simulated Device Frame Support -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex justify-center">
+      <div id="viewWrapper" class="w-full max-w-5xl transition-all duration-300">
+        
+        <!-- Mobile Search (Small Screens) -->
+        <div class="md:hidden mb-4 relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3 text-gray-400"></i>
+          <input 
+            type="text" 
+            placeholder="Search snippets & #tags..." 
+            oninput="handleSearch(this.value)"
+            class="w-full pl-10 pr-4 py-2 text-sm rounded-xl bg-[#F0F0FF] dark:bg-[#1A1A2E] border-none focus:ring-2 focus:ring-brand-500 focus:outline-none dark:text-white"
+          >
+        </div>
+
+        <!-- Free Quota / Plan Status Banner -->
+        <div id="quotaBanner" class="mb-6 p-3.5 rounded-2xl bg-[#F0F0FF] dark:bg-[#1A1A2E] border border-brand-500/15 flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-2.5">
+            <span class="p-1.5 rounded-lg bg-brand-500/10 text-brand-500">
+              <i data-lucide="info" class="w-4 h-4"></i>
+            </span>
+            <div>
+              <span class="font-medium text-gray-700 dark:text-gray-300">Free Tier Limit: </span>
+              <span id="quotaCount" class="font-bold text-brand-500">0</span>
+              <span class="text-gray-500"> / 10 snippets stored</span>
+            </div>
+          </div>
+          <button 
+            onclick="openPaywall('Unlimited storage with SnapClip Pro')"
+            class="font-bold text-brand-500 hover:text-brand-600 underline text-xs"
+          >
+            Upgrade Plan &rarr;
+          </button>
+        </div>
+
+        <!-- Categories Filter Pill Carousel -->
+        <div class="flex items-center space-x-2 overflow-x-auto pb-3 mb-6 no-scrollbar">
+          <button 
+            onclick="filterCategory('')" 
+            id="cat-all"
+            class="cat-pill px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 whitespace-nowrap transition-all bg-brand-500 text-white shadow-sm"
+          >
+            <span>✨</span>
+            <span>All Snippets</span>
+          </button>
+          <div id="categoryPillsList" class="flex items-center space-x-2"></div>
+          <button 
+            onclick="openCategoryModal()"
+            class="px-3 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1 whitespace-nowrap text-brand-500 bg-brand-500/10 hover:bg-brand-500/20 transition-colors"
+          >
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>New Folder</span>
+          </button>
+        </div>
+
+        <!-- Action Header: Title + New Snippet Button -->
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h1 id="feedTitle" class="text-xl font-bold text-[#1A1A2E] dark:text-white">Your Snippet Vault</h1>
+            <p id="feedSubtitle" class="text-xs text-gray-500 dark:text-gray-400">Click any card to copy instantly to your clipboard.</p>
+          </div>
+          <button 
+            onclick="openAddSnippetModal()"
+            class="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs shadow-md shadow-brand-500/25 transition-all transform active:scale-95"
+          >
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>New Snippet</span>
+          </button>
+        </div>
+
+        <!-- Snippet Grid / Feed -->
+        <div id="snippetsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden py-16 flex flex-col items-center justify-center text-center">
+          <div class="w-20 h-20 rounded-full bg-brand-500/10 flex items-center justify-center text-3xl mb-4 animate-float">
+            📋
+          </div>
+          <h3 class="text-lg font-bold text-gray-800 dark:text-gray-200">No snippets found</h3>
+          <p class="text-xs text-gray-500 dark:text-gray-400 max-w-sm mt-1 mb-6">Create reusable text blocks, code templates, or links to speed up your daily workflows.</p>
+          <button 
+            onclick="openAddSnippetModal()"
+            class="px-5 py-2.5 rounded-xl bg-brand-500 text-white font-semibold text-xs shadow-lg shadow-brand-500/25 hover:bg-brand-600 transition-all"
+          >
+            + Create First Snippet
+          </button>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-[#E8E8F5] dark:border-[#252540] py-6 text-center text-xs text-gray-400">
+      <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p>© 2026 SnapClip App • Powered by RevenueCat SDK & Firebase</p>
+        <div class="flex items-center space-x-4">
+          <a href="#" onclick="openPaywall('RevenueCat Pricing')" class="hover:text-brand-500">RevenueCat Paywall</a>
+          <span>•</span>
+          <a href="https://github.com/athukuriharini-cpu/snapclip-app" target="_blank" class="hover:text-brand-500 flex items-center space-x-1">
+            <i data-lucide="github" class="w-3.5 h-3.5"></i>
+            <span>GitHub Repository</span>
+          </a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- ADD / EDIT SNIPPET MODAL -->
+  <div id="snippetModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-[#1A1A2E] rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 dark:border-[#252540] overflow-hidden transform transition-all">
+      <div class="p-5 border-b border-gray-100 dark:border-[#252540] flex items-center justify-between">
+        <h3 id="snippetModalTitle" class="font-bold text-base text-gray-900 dark:text-white">New Snippet</h3>
+        <button onclick="closeModal('snippetModal')" class="text-gray-400 hover:text-gray-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="handleSaveSnippet(event)" class="p-5 space-y-4">
+        <input type="hidden" id="editSnippetId">
+        
+        <!-- Snippet Type Selector -->
+        <div class="grid grid-cols-4 gap-2">
+          <label class="cursor-pointer">
+            <input type="radio" name="snippetType" value="text" checked class="peer sr-only">
+            <div class="p-2 text-center rounded-xl border border-gray-200 dark:border-[#2a2a45] peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-xs font-medium">
+              <span class="block text-base mb-0.5">📝</span> Text
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="snippetType" value="code" class="peer sr-only">
+            <div class="p-2 text-center rounded-xl border border-gray-200 dark:border-[#2a2a45] peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-xs font-medium">
+              <span class="block text-base mb-0.5">💻</span> Code
+            </div>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="snippetType" value="link" class="peer sr-only">
+            <div class="p-2 text-center rounded-xl border border-gray-200 dark:border-[#2a2a45] peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-xs font-medium">
+              <span class="block text-base mb-0.5">🔗</span> Link
+            </div>
+          </label>
+          <label class="cursor-pointer" onclick="checkProForImage(event)">
+            <input type="radio" name="snippetType" value="image" class="peer sr-only">
+            <div class="p-2 text-center rounded-xl border border-gray-200 dark:border-[#2a2a45] peer-checked:border-brand-500 peer-checked:bg-brand-500/10 text-xs font-medium relative">
+              <span class="block text-base mb-0.5">🖼️</span> Image
+              <span class="absolute top-1 right-1 text-[8px] bg-amber-500 text-white font-bold px-1 rounded">PRO</span>
+            </div>
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Title</label>
+          <input type="text" id="snippetTitle" required placeholder="e.g. Weekly Standup Template" class="w-full px-3.5 py-2 text-xs rounded-xl bg-gray-50 dark:bg-[#252540] border border-gray-200 dark:border-[#2a2a45] focus:ring-2 focus:ring-brand-500 focus:outline-none dark:text-white">
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-gray-700 dark:text-gray-300">Snippet Content</label>
+            <button type="button" onclick="pasteFromClipboard()" class="text-[11px] text-brand-500 hover:underline flex items-center space-x-1">
+              <i data-lucide="clipboard-paste" class="w-3 h-3"></i>
+              <span>Paste Clipboard</span>
+            </button>
+          </div>
+          <textarea id="snippetContent" rows="5" required placeholder="Type or paste your text, script, or template..." class="w-full p-3 text-xs font-mono rounded-xl bg-gray-50 dark:bg-[#252540] border border-gray-200 dark:border-[#2a2a45] focus:ring-2 focus:ring-brand-500 focus:outline-none dark:text-white"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Folder</label>
+            <select id="snippetCategory" class="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 dark:bg-[#252540] border border-gray-200 dark:border-[#2a2a45] focus:ring-2 focus:ring-brand-500 focus:outline-none dark:text-white"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Tags (comma separated)</label>
+            <input type="text" id="snippetTags" placeholder="work, email, python" class="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 dark:bg-[#252540] border border-gray-200 dark:border-[#2a2a45] focus:ring-2 focus:ring-brand-500 focus:outline-none dark:text-white">
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end space-x-2">
+          <button type="button" onclick="closeModal('snippetModal')" class="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#252540]">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white shadow-md">Save Snippet</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- REVENUECAT PAYWALL MODAL -->
+  <div id="paywallModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+    <div class="bg-white dark:bg-[#1A1A2E] rounded-3xl w-full max-w-md shadow-2xl border border-amber-500/20 overflow-hidden transform transition-all relative">
+      <button onclick="closeModal('paywallModal')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="p-6 text-center">
+        <!-- Crown Icon -->
+        <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center mx-auto text-white text-3xl shadow-xl shadow-amber-500/30 mb-4 animate-bounce">
+          👑
+        </div>
+        <h2 class="text-2xl font-black tracking-tight text-gray-900 dark:text-white">Unlock SnapClip Pro</h2>
+        <p id="paywallReason" class="text-xs text-gray-500 dark:text-gray-400 mt-1">Supercharge your workflow with unlimited storage and pro tools</p>
+
+        <!-- Feature List -->
+        <div class="my-6 text-left space-y-2.5 bg-gray-50 dark:bg-[#252540] p-4 rounded-2xl text-xs">
+          <div class="flex items-center space-x-2.5">
+            <span class="text-base">♾️</span>
+            <span class="font-medium text-gray-700 dark:text-gray-300">Unlimited Snippets & Custom Folders</span>
+          </div>
+          <div class="flex items-center space-x-2.5">
+            <span class="text-base">☁️</span>
+            <span class="font-medium text-gray-700 dark:text-gray-300">Cloud Real-Time Sync & Backup</span>
+          </div>
+          <div class="flex items-center space-x-2.5">
+            <span class="text-base">🖼️</span>
+            <span class="font-medium text-gray-700 dark:text-gray-300">Rich Image & Code Highlighter</span>
+          </div>
+          <div class="flex items-center space-x-2.5">
+            <span class="text-base">⚡</span>
+            <span class="font-medium text-gray-700 dark:text-gray-300">Instant Global Quick-Copy</span>
+          </div>
+        </div>
+
+        <!-- Pricing Options (Annual vs Monthly) -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+          <div 
+            onclick="selectPlan('monthly')" 
+            id="plan-monthly"
+            class="plan-card p-3.5 rounded-2xl border-2 border-gray-200 dark:border-[#2a2a45] cursor-pointer text-left transition-all"
+          >
+            <span class="text-xs font-bold block text-gray-500">Monthly</span>
+            <span class="text-lg font-black text-gray-900 dark:text-white">$2.99</span>
+            <span class="text-[10px] text-gray-400 block">/ month</span>
+          </div>
+          
+          <div 
+            onclick="selectPlan('annual')" 
+            id="plan-annual"
+            class="plan-card p-3.5 rounded-2xl border-2 border-brand-500 bg-brand-500/5 cursor-pointer text-left relative transition-all"
+          >
+            <span class="absolute -top-2.5 right-2 px-2 py-0.5 bg-accent text-white text-[9px] font-black rounded-full uppercase">Save 44%</span>
+            <span class="text-xs font-bold block text-brand-500">Annual</span>
+            <span class="text-lg font-black text-gray-900 dark:text-white">$19.99</span>
+            <span class="text-[10px] text-emerald-500 font-semibold block">7-Day Free Trial</span>
+          </div>
+        </div>
+
+        <!-- Subscribe CTA Button -->
+        <button 
+          onclick="activateProSubscription()"
+          class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-brand-500 via-brand-600 to-accent hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-brand-500/30 transition-all transform active:scale-95 flex items-center justify-center space-x-2"
+        >
+          <span id="ctaBtnLabel">Start 7-Day Free Trial</span>
+        </button>
+
+        <p class="text-[10px] text-gray-400 mt-3">Powered by RevenueCat SDK Sandbox • Cancel anytime with 1 click</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CATEGORY MODAL -->
+  <div id="categoryModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-[#1A1A2E] rounded-2xl w-full max-w-sm p-5 shadow-2xl border border-gray-100 dark:border-[#252540]">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-bold text-base text-gray-900 dark:text-white">New Folder</h3>
+        <button onclick="closeModal('categoryModal')" class="text-gray-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="handleSaveCategory(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Folder Name</label>
+          <input type="text" id="catName" required placeholder="e.g. Code, School, Work" class="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 dark:bg-[#252540] border border-gray-200 dark:border-[#2a2a45] dark:text-white">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold mb-1 text-gray-700 dark:text-gray-300">Choose Icon</label>
+          <div class="grid grid-cols-6 gap-2" id="iconPicker"></div>
+        </div>
+        <div class="pt-2 flex justify-end space-x-2">
+          <button type="button" onclick="closeModal('categoryModal')" class="px-3 py-1.5 text-xs text-gray-500">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 text-xs font-semibold bg-brand-500 text-white rounded-xl">Create Folder</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- AUTH MODAL -->
+  <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-[#1A1A2E] rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-gray-100 dark:border-[#252540] text-center">
+      <div class="w-12 h-12 rounded-2xl bg-brand-500/10 text-brand-500 flex items-center justify-center mx-auto text-xl mb-3">
+        🔐
+      </div>
+      <h3 class="font-bold text-lg text-gray-900 dark:text-white">Sign In to SnapClip</h3>
+      <p class="text-xs text-gray-400 mt-1 mb-6">Sync your snippets across your mobile and desktop devices.</p>
+
+      <div class="space-y-3">
+        <button 
+          onclick="mockSignIn('Google User', 'google')"
+          class="w-full py-2.5 px-4 rounded-xl border border-gray-200 dark:border-[#2a2a45] hover:bg-gray-50 dark:hover:bg-[#252540] text-xs font-semibold flex items-center justify-center space-x-2 transition-colors"
+        >
+          <span>🌐</span>
+          <span>Continue with Google</span>
+        </button>
+
+        <button 
+          onclick="mockSignIn('Student Developer', 'student')"
+          class="w-full py-2.5 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all"
+        >
+          <span>🎓</span>
+          <span>Instant Student Sign-In</span>
+        </button>
+      </div>
+
+      <button onclick="closeModal('authModal')" class="mt-4 text-xs text-gray-400 hover:underline">Cancel</button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-[#1A1A2E] text-white text-xs font-medium shadow-2xl border border-white/10">
+      <span id="toastIcon">📋</span>
+      <span id="toastMsg">Copied to clipboard!</span>
+    </div>
+  </div>
+
+  <!-- Firebase v10 SDK Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // Firebase Config (Zenith / SnapClip)
+    const firebaseConfig = {
+      projectId: "zenith-301b7",
+      appId: "1:1088868384456:web:631233ca5dfac335c6affd",
+      storageBucket: "zenith-301b7.firebasestorage.app",
+      apiKey: "AIzaSyAN3Sr3fZY8Dx4WO8U3FZzZASgxnTLhsPU",
+      authDomain: "zenith-301b7.firebaseapp.com",
+    };
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      window.auth = getAuth(app);
+      window.db = getFirestore(app);
+      console.log("🔥 Firebase initialized successfully!");
+    } catch(err) {
+      console.warn("Firebase fallback mode:", err);
+    }
+  </script>
+
+  <!-- Application Logic -->
+  <script>
+    // State Store
+    const state = {
+      snippets: JSON.parse(localStorage.getItem('snapclip_snippets')) || [
+        {
+          id: '1',
+          title: 'Weekly Standup Notes',
+          content: '🚀 Done: Shipped Firebase integration & UI vault\n⏳ Next: Submit to RevenueCat Shipaton\n⚠️ Blockers: None!',
+          type: 'text',
+          category: 'work',
+          tags: ['standup', 'weekly', 'work'],
+          isFavorite: true,
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: '2',
+          title: 'RevenueCat Initialization Code',
+          content: 'await Purchases.configure(PurchasesConfiguration("YOUR_REVENUECAT_API_KEY"));\nconst isPro = customerInfo.entitlements.active.has("pro");',
+          type: 'code',
+          category: 'code',
+          tags: ['flutter', 'dart', 'revenuecat'],
+          isFavorite: true,
+          updatedAt: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+          id: '3',
+          title: 'Official Shipaton Hackathon Page',
+          content: 'https://revenuecat.com/shipaton-2026',
+          type: 'link',
+          category: 'links',
+          tags: ['hackathon', 'shipaton'],
+          isFavorite: false,
+          updatedAt: new Date(Date.now() - 86400000).toISOString()
+        }
+      ],
+      categories: JSON.parse(localStorage.getItem('snapclip_categories')) || [
+        { id: 'work', name: 'Work', icon: '💼' },
+        { id: 'code', name: 'Code', icon: '💻' },
+        { id: 'links', name: 'Links', icon: '🔗' },
+      ],
+      selectedCategory: '',
+      searchQuery: '',
+      isPro: localStorage.getItem('snapclip_is_pro') === 'true',
+      currentUser: JSON.parse(localStorage.getItem('snapclip_user')) || null,
+      selectedPlan: 'annual',
+      selectedIcon: '📁',
+      isMobileFrame: false,
+    };
+
+    const emojiList = ['📁', '💼', '💡', '💻', '🔗', '📝', '🎯', '🚀', '⭐', '🏷️', '📚', '🛠️'];
+
+    // Initialize UI
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initTheme();
+      initIconPicker();
+      renderCategories();
+      renderSnippets();
+      updateProStatus();
+      updateUserUI();
+    });
+
+    function saveSnippets() {
+      localStorage.setItem('snapclip_snippets', JSON.stringify(state.snippets));
+      renderSnippets();
+    }
+
+    function saveCategories() {
+      localStorage.setItem('snapclip_categories', JSON.stringify(state.categories));
+      renderCategories();
+    }
+
+    // Snippets Render
+    function renderSnippets() {
+      const grid = document.getElementById('snippetsGrid');
+      const emptyState = document.getElementById('emptyState');
+      const countEl = document.getElementById('quotaCount');
+      
+      let list = [...state.snippets];
+      if (state.selectedCategory) {
+        list = list.filter(s => s.category === state.selectedCategory);
+      }
+      if (state.searchQuery) {
+        const q = state.searchQuery.toLowerCase();
+        list = list.filter(s => 
+          s.title.toLowerCase().includes(q) || 
+          s.content.toLowerCase().includes(q) || 
+          s.tags.some(t => t.toLowerCase().includes(q))
+        );
+      }
+
+      countEl.innerText = state.snippets.length;
+
+      if (list.length === 0) {
+        grid.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      grid.innerHTML = list.map(s => {
+        const cat = state.categories.find(c => c.id === s.category);
+        const typeEmoji = s.type === 'code' ? '💻' : s.type === 'link' ? '🔗' : s.type === 'image' ? '🖼️' : '📝';
+        
+        return `
+          <div class="p-4 rounded-2xl bg-white dark:bg-[#1A1A2E] border border-gray-100 dark:border-[#252540] hover:border-brand-500/40 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+            <div>
+              <!-- Card Header -->
+              <div class="flex items-center justify-between mb-2.5">
+                <div class="flex items-center space-x-2">
+                  <span class="p-1.5 rounded-lg bg-brand-500/10 text-xs">${typeEmoji}</span>
+                  <span class="font-bold text-sm text-gray-900 dark:text-white truncate max-w-[150px]">${s.title}</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <button onclick="toggleFavorite('${s.id}')" class="text-gray-300 hover:text-amber-400 p-1">
+                    <i data-lucide="star" class="w-4 h-4 ${s.isFavorite ? 'fill-amber-400 text-amber-400' : ''}"></i>
+                  </button>
+                  <button onclick="deleteSnippet('${s.id}')" class="text-gray-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Content Box -->
+              <div 
+                onclick="copySnippet('${s.id}')"
+                class="p-3 rounded-xl bg-gray-50 dark:bg-[#252540] text-xs ${s.type === 'code' ? 'font-mono' : ''} text-gray-700 dark:text-gray-300 line-clamp-3 cursor-pointer hover:bg-brand-500/5 transition-colors"
+                title="Click to copy"
+              >
+                ${escapeHtml(s.content)}
+              </div>
+            </div>
+
+            <!-- Footer: Folder, Tags, Actions -->
+            <div class="mt-3 pt-2.5 border-t border-gray-100 dark:border-[#252540] flex items-center justify-between text-[11px]">
+              <div class="flex items-center space-x-1.5">
+                ${cat ? `<span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-500 font-medium">${cat.icon} ${cat.name}</span>` : ''}
+                ${s.tags.length ? `<span class="text-gray-400">#${s.tags[0]}</span>` : ''}
+              </div>
+              <button 
+                onclick="copySnippet('${s.id}')"
+                class="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-brand-500/10 hover:bg-brand-500 text-brand-500 hover:text-white font-semibold transition-all"
+              >
+                <i data-lucide="copy" class="w-3 h-3"></i>
+                <span>Copy</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    // Category Render
+    function renderCategories() {
+      const pillsContainer = document.getElementById('categoryPillsList');
+      const selectEl = document.getElementById('snippetCategory');
+
+      pillsContainer.innerHTML = state.categories.map(c => `
+        <button 
+          onclick="filterCategory('${c.id}')" 
+          id="cat-${c.id}"
+          class="cat-pill px-4 py-2 rounded-xl text-xs font-semibold flex items-center space-x-1.5 whitespace-nowrap transition-all bg-gray-100 dark:bg-[#252540] text-gray-600 dark:text-gray-300 hover:bg-gray-200"
+        >
+          <span>${c.icon}</span>
+          <span>${c.name}</span>
+        </button>
+      `).join('');
+
+      selectEl.innerHTML = '<option value="">Uncategorized</option>' + state.categories.map(c => `
+        <option value="${c.id}">${c.icon} ${c.name}</option>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    // Copy to Clipboard
+    window.copySnippet = function(id) {
+      const s = state.snippets.find(x => x.id === id);
+      if (!s) return;
+      navigator.clipboard.writeText(s.content);
+      showToast('Copied to clipboard! 📋');
+    };
+
+    window.toggleFavorite = function(id) {
+      const s = state.snippets.find(x => x.id === id);
+      if (s) {
+        s.isFavorite = !s.isFavorite;
+        saveSnippets();
+      }
+    };
+
+    window.deleteSnippet = function(id) {
+      state.snippets = state.snippets.filter(x => x.id !== id);
+      saveSnippets();
+      showToast('Snippet deleted');
+    };
+
+    // Filter Category
+    window.filterCategory = function(catId) {
+      state.selectedCategory = catId;
+      document.querySelectorAll('.cat-pill').forEach(btn => {
+        btn.classList.remove('bg-brand-500', 'text-white', 'shadow-sm');
+        btn.classList.add('bg-gray-100', 'dark:bg-[#252540]', 'text-gray-600', 'dark:text-gray-300');
+      });
+      const activeBtn = document.getElementById(catId ? `cat-${catId}` : 'cat-all');
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-100', 'dark:bg-[#252540]', 'text-gray-600', 'dark:text-gray-300');
+        activeBtn.classList.add('bg-brand-500', 'text-white', 'shadow-sm');
+      }
+      renderSnippets();
+    };
+
+    window.handleSearch = function(val) {
+      state.searchQuery = val;
+      renderSnippets();
+    };
+
+    // Modals
+    window.openModal = function(id) { document.getElementById(id).classList.remove('hidden'); };
+    window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); };
+
+    window.openAddSnippetModal = function() {
+      if (!state.isPro && state.snippets.length >= 10) {
+        openPaywall('You reached the free limit of 10 snippets. Upgrade to Pro for unlimited storage!');
+        return;
+      }
+      document.getElementById('editSnippetId').value = '';
+      document.getElementById('snippetTitle').value = '';
+      document.getElementById('snippetContent').value = '';
+      document.getElementById('snippetTags').value = '';
+      document.getElementById('snippetModalTitle').innerText = 'New Snippet';
+      openModal('snippetModal');
+    };
+
+    window.handleSaveSnippet = function(e) {
+      e.preventDefault();
+      const type = document.querySelector('input[name="snippetType"]:checked').value;
+      const title = document.getElementById('snippetTitle').value;
+      const content = document.getElementById('snippetContent').value;
+      const category = document.getElementById('snippetCategory').value;
+      const tags = document.getElementById('snippetTags').value.split(',').map(t => t.trim()).filter(Boolean);
+
+      state.snippets.unshift({
+        id: Date.now().toString(),
+        title,
+        content,
+        type,
+        category,
+        tags,
+        isFavorite: false,
+        updatedAt: new Date().toISOString()
+      });
+
+      saveSnippets();
+      closeModal('snippetModal');
+      showToast('Snippet saved successfully! 🎉');
+    };
+
+    window.openCategoryModal = function() {
+      if (!state.isPro && state.categories.length >= 3) {
+        openPaywall('Free plan allows up to 3 folders. Upgrade to Pro for unlimited categories!');
+        return;
+      }
+      openModal('categoryModal');
+    };
+
+    window.handleSaveCategory = function(e) {
+      e.preventDefault();
+      const name = document.getElementById('catName').value.trim();
+      if (!name) return;
+      state.categories.push({
+        id: name.toLowerCase().replace(/\s+/g, '-'),
+        name,
+        icon: state.selectedIcon
+      });
+      saveCategories();
+      closeModal('categoryModal');
+      showToast('Folder created! ✨');
+    };
+
+    function initIconPicker() {
+      const container = document.getElementById('iconPicker');
+      container.innerHTML = emojiList.map(emoji => `
+        <button 
+          type="button" 
+          onclick="selectIcon('${emoji}', this)" 
+          class="p-2 text-xl rounded-xl border border-gray-200 dark:border-[#2a2a45] hover:bg-brand-500/10 transition-colors ${emoji === state.selectedIcon ? 'border-brand-500 bg-brand-500/10' : ''}"
+        >
+          ${emoji}
+        </button>
+      `).join('');
+    }
+
+    window.selectIcon = function(emoji, el) {
+      state.selectedIcon = emoji;
+      document.querySelectorAll('#iconPicker button').forEach(b => b.classList.remove('border-brand-500', 'bg-brand-500/10'));
+      el.classList.add('border-brand-500', 'bg-brand-500/10');
+    };
+
+    // RevenueCat Paywall Simulation
+    window.openPaywall = function(reason) {
+      document.getElementById('paywallReason').innerText = reason || 'Supercharge your workflow with SnapClip Pro';
+      openModal('paywallModal');
+    };
+
+    window.selectPlan = function(plan) {
+      state.selectedPlan = plan;
+      document.querySelectorAll('.plan-card').forEach(c => {
+        c.classList.remove('border-brand-500', 'bg-brand-500/5');
+        c.classList.add('border-gray-200', 'dark:border-[#2a2a45]');
+      });
+      const activeCard = document.getElementById(`plan-${plan}`);
+      activeCard.classList.add('border-brand-500', 'bg-brand-500/5');
+      activeCard.classList.remove('border-gray-200', 'dark:border-[#2a2a45]');
+      document.getElementById('ctaBtnLabel').innerText = plan === 'annual' ? 'Start 7-Day Free Trial' : 'Subscribe Now — $2.99/mo';
+    };
+
+    window.activateProSubscription = function() {
+      state.isPro = true;
+      localStorage.setItem('snapclip_is_pro', 'true');
+      updateProStatus();
+      closeModal('paywallModal');
+      
+      // Confetti celebration
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      showToast('Welcome to SnapClip Pro! 👑');
+    };
+
+    function updateProStatus() {
+      const badge = document.getElementById('proBadge');
+      const upgradeBtn = document.getElementById('headerUpgradeBtn');
+      const quotaBanner = document.getElementById('quotaBanner');
+
+      if (state.isPro) {
+        badge.classList.remove('hidden');
+        upgradeBtn.classList.add('hidden');
+        quotaBanner.classList.add('hidden');
+      } else {
+        badge.classList.add('hidden');
+        upgradeBtn.classList.remove('hidden');
+        quotaBanner.classList.remove('hidden');
+      }
+    }
+
+    // Authentication Mock
+    window.openAuthModal = function() { openModal('authModal'); };
+    window.mockSignIn = function(name, type) {
+      state.currentUser = { name, email: `${type}@snapclip.app` };
+      localStorage.setItem('snapclip_user', JSON.stringify(state.currentUser));
+      updateUserUI();
+      closeModal('authModal');
+      showToast(`Signed in as ${name} 🚀`);
+    };
+
+    window.signOutUser = function() {
+      state.currentUser = null;
+      localStorage.removeItem('snapclip_user');
+      updateUserUI();
+      showToast('Signed out');
+    };
+
+    function updateUserUI() {
+      const loginBtn = document.getElementById('loginBtn');
+      const userProfile = document.getElementById('userProfile');
+      const userAvatar = document.getElementById('userAvatar');
+
+      if (state.currentUser) {
+        loginBtn.classList.add('hidden');
+        userProfile.classList.remove('hidden');
+        userAvatar.innerText = state.currentUser.name[0].toUpperCase();
+      } else {
+        loginBtn.classList.remove('hidden');
+        userProfile.classList.add('hidden');
+      }
+    }
+
+    // Toggle Device Frame
+    window.toggleDeviceFrame = function() {
+      state.isMobileFrame = !state.isMobileFrame;
+      const wrapper = document.getElementById('viewWrapper');
+      const label = document.getElementById('deviceFrameLabel');
+
+      if (state.isMobileFrame) {
+        wrapper.className = 'w-full max-w-[420px] bg-white dark:bg-[#1A1A2E] p-4 rounded-[40px] shadow-2xl border-8 border-gray-900 transition-all duration-300 my-4';
+        label.innerText = 'Full View';
+      } else {
+        wrapper.className = 'w-full max-w-5xl transition-all duration-300';
+        label.innerText = 'Mobile View';
+      }
+    };
+
+    // Dark Mode Toggle
+    window.toggleDarkMode = function() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      document.getElementById('themeIcon').setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+      lucide.createIcons();
+    };
+
+    function initTheme() {
+      if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    }
+
+    // Paste from Clipboard helper
+    window.pasteFromClipboard = async function() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          document.getElementById('snippetContent').value = text;
+          if (!document.getElementById('snippetTitle').value) {
+            document.getElementById('snippetTitle').value = text.split('\n')[0].substring(0, 40);
+          }
+          showToast('Pasted from clipboard!');
+        }
+      } catch (err) {
+        showToast('Please allow clipboard permissions');
+      }
+    };
+
+    window.checkProForImage = function(e) {
+      if (!state.isPro) {
+        e.preventDefault();
+        openPaywall('Rich Image snippets are a SnapClip Pro feature');
+      }
+    };
+
+    // Toast
+    function showToast(msg, icon = '📋') {
+      const t = document.getElementById('toast');
+      document.getElementById('toastMsg').innerText = msg;
+      document.getElementById('toastIcon').innerText = icon;
+      t.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 2500);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+name: snapclip
+description: SnapClip - Smart Snippet Manager. Save, organize, and instantly access your text snippets, links, and notes.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+
+  # Local Database
+  hive_flutter: ^1.1.0
+
+  # RevenueCat (Monetization - required by Shipaton)
+  purchases_flutter: ^8.0.0
+
+  # UI & Icons
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  lottie: ^3.1.0
+
+  # Clipboard & Sharing
+  clipboard: ^0.1.3
+  share_plus: ^9.0.0
+
+  # Image handling
+  image_picker: ^1.0.7
+
+  # Navigation
+  go_router: ^13.2.4
+
+  # Utils
+  uuid: ^4.3.3
+  intl: ^0.19.0
+  shared_preferences: ^2.2.3
+  url_launcher: ^6.2.6
+  flutter_slidable: ^3.1.0
+  cached_network_image: ^3.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.8
+  riverpod_generator: ^2.3.9
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/animations/
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
